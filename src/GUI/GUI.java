@@ -92,7 +92,7 @@ public class GUI implements Observer{
 		frame.getContentPane().add(northPanel, BorderLayout.NORTH);
 		northPanel.setLayout(new BorderLayout(0, 0));
 		
-		lblStatus = new JLabel("playing");
+		lblStatus = new JLabel("spiel läuft...");
 		northPanel.add(lblStatus, BorderLayout.CENTER);
 	}
 
@@ -119,5 +119,6 @@ public class GUI implements Observer{
 			spalten[spalte].reset();
 		}
 		cal.init();
+		lblStatus.setText("spiel läuft...");
 	}
 }
