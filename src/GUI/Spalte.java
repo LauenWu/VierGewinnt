@@ -7,6 +7,7 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 
 import javax.swing.JPanel;
+import javax.swing.border.LineBorder;
 
 import calculation.MiniMaxi;
 
@@ -27,6 +28,7 @@ public class Spalte extends JPanel {
 		
 		for(int i = 0; i < ZEILEN; i++) {
 			felder[i] = new JPanel();
+			felder[i].setBorder(new LineBorder(new Color(0, 0, 0)));
 			this.add(felder[i]);
 			felder[i].setBackground(Color.WHITE);
 		}

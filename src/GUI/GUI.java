@@ -14,6 +14,10 @@ import java.util.Observable;
 import java.util.Observer;
 
 import static global.GlobalConstants.*;
+import javax.swing.border.LineBorder;
+import java.awt.Color;
+import java.awt.event.ActionListener;
+import java.awt.event.ActionEvent;
 
 public class GUI implements Observer{
 
@@ -72,10 +76,16 @@ public class GUI implements Observer{
 		playfield.setLayout(new GridLayout(1, 7, 0, 0));
 		
 		JPanel southPanel = new JPanel();
+		southPanel.setBorder(new LineBorder(new Color(0, 0, 0)));
 		frame.getContentPane().add(southPanel, BorderLayout.SOUTH);
 		southPanel.setLayout(new BorderLayout(0, 0));
 		
 		JButton reset = new JButton("reset");
+		reset.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				reset();
+			}
+		});
 		southPanel.add(reset, BorderLayout.CENTER);
 		
 		JPanel northPanel = new JPanel();
@@ -102,5 +112,12 @@ public class GUI implements Observer{
 	
 	public void setStatus(String status) {
 		this.lblStatus.setText(status);
+	}
+	
+	private void reset() {
+		for(byte spalte = 0; spalte < SPALTEN; spalte ++) {
+			spalten[spalte].reset();
+		}
+		cal.init();
 	}
 }

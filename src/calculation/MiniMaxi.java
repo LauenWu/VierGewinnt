@@ -10,8 +10,9 @@ import static global.GlobalConstants.*;
 public class MiniMaxi extends Observable {
 	private List<Observer> beobachter = new ArrayList<>();
 
-	private final byte VICTORY = 127;
-	private final byte[] scores = {0,0,15,30,VICTORY,VICTORY,VICTORY,VICTORY};
+	private final int IMPOSSIBLE = 2000;
+	private final int VICTORY = 500;
+	private final int[] scores = {0,0,15,30,VICTORY,VICTORY,VICTORY,VICTORY};
 	
 	private byte[][] spielfeld;
 	private byte[] belegung;
@@ -20,28 +21,25 @@ public class MiniMaxi extends Observable {
 	private byte zeilen;
 	private byte spalten;
 	private int felder;
-	
 	private int belegteFelder;
 	
-	private boolean gewonnen;
-	
-	//bester zug mensch
-	private byte alpha;
-	
-	//bester zug computer
-	private byte beta;
-	
 	public MiniMaxi(Observer beobachter) {
+		init();
+		this.beobachter.add(beobachter);
+	}
+	
+	public void init() {
 		besteSpalte = -1;
-		level = 6;
+		level = 10;
 		zeilen = ZEILEN;
 		spalten = SPALTEN;
 		belegung = new byte[spalten];
 		spielfeld = new byte[zeilen][spalten];
 		felder = zeilen*spalten;
 		belegteFelder = 0;
-		gewonnen = false;
-		this.beobachter.add(beobachter);
+		for(Observer b : beobachter) {
+			b.update(this, null);
+		}
 	}
 	
 	public byte getBesteSpalte() {
@@ -60,13 +58,13 @@ public class MiniMaxi extends Observable {
 		return spielfeld;
 	}
 	
-	public boolean isGewonnen(byte score) {
+	public boolean isGewonnen(int score) {
 		return score == VICTORY;
 	}
 	
-	private byte computerZug() {
+	private int computerZug() {
 		mini((byte) 0, (byte) -VICTORY);
-		byte score = machZug(besteSpalte, COMPUTER); 
+		int score = machZug(besteSpalte, COMPUTER, (byte) 0); 
 		
 		for(Observer b : beobachter) {
 			b.update(this, null);
@@ -76,7 +74,7 @@ public class MiniMaxi extends Observable {
 	}
 	
 	public byte menschZug(byte spalte) {
-		byte score = machZug(spalte, MENSCH);
+		int score = machZug(spalte, MENSCH, (byte) 0);
 		if(isGewonnen(score)) return SIEG_MENSCH;
 		score = computerZug();
 		if(isGewonnen(score)) return SIEG_COMPUTER;
@@ -85,7 +83,7 @@ public class MiniMaxi extends Observable {
 	}
 	
 	public boolean isVoll() {
-		belegteFelder = 0;
+		int belegteFelder = 0;
 		for(int zeile = 0; zeile < zeilen; zeile ++) {
 			for(int spalte = 0; spalte < spalten; spalte ++) {
 				if(spielfeld[zeile][spalte] != 0) belegteFelder++;
@@ -95,12 +93,12 @@ public class MiniMaxi extends Observable {
 	}
 	
 	//computer
-	private byte mini(byte tiefe, byte alpha) {		
-		byte minimalScore = VICTORY;
+	private int mini(byte tiefe, int alpha) {		
+		int minimalScore = IMPOSSIBLE;
 		for (byte spalte = 0; spalte < this.spalten; spalte++) {
 			if(belegung[spalte] >= zeilen) continue;
 			
-			byte score = (byte) - machZug(spalte, COMPUTER);
+			int score = -machZug(spalte, COMPUTER, tiefe);
 			
 			if(score < alpha && tiefe > 0) {
 				//maxi wird Zug nicht zulassen
@@ -108,18 +106,11 @@ public class MiniMaxi extends Observable {
 				continue;
 			}
 			
-			if(score == -VICTORY || tiefe == level) {
-				if(tiefe == 0) {
-					besteSpalte = spalte;
-					//gewonnen = true;
-				}
-				loescheZug(spalte);
-				return score;
+			if(!(-score + tiefe == VICTORY || tiefe == level || belegteFelder == felder)) {
+				score = maxi((byte) (tiefe + 1), minimalScore);
 			}
 			
-			score = maxi((byte) (tiefe + 1), minimalScore);
-			
-			if(score < minimalScore) {
+			if(score <= minimalScore) {
 				//besseren zug gefunden
 				minimalScore = score;
 				if(tiefe == 0) {
@@ -133,31 +124,24 @@ public class MiniMaxi extends Observable {
 	}
 	
 	//mensch
-	private byte maxi(byte tiefe, byte beta) {
-		byte maximalScore = - VICTORY;
+	private int maxi(byte tiefe, int beta) {
+		int maximalScore = - IMPOSSIBLE;
 		for (byte spalte = 0; spalte < this.spalten; spalte++) {
-			if(belegung[spalte] >= zeilen-1) continue;
+			if(belegung[spalte] >= zeilen) continue;
 			
-			byte score = (byte) machZug(spalte, MENSCH);
+			int score = machZug(spalte, MENSCH, tiefe);
 			
 			if(score > beta && tiefe > 0) {
-				//maxi wird Zug nicht zulassen
+				//mini wird Zug nicht zulassen
 				loescheZug(spalte);
 				continue;
 			}
 			
-			if(score == VICTORY || tiefe == level) {
-				if(tiefe == 0) {
-					besteSpalte = spalte;
-					//gewonnen = true;
-				}
-				loescheZug(spalte);
-				return score;
+			if(!(score + tiefe == VICTORY || tiefe == level || belegteFelder == felder)) {
+				score = mini((byte) (tiefe + 1), maximalScore);
 			}
 			
-			score = mini((byte) (tiefe + 1), maximalScore);
-			
-			if(score > maximalScore) {
+			if(score >= maximalScore) {
 				//besseren zug gefunden
 				maximalScore = score;
 				if(tiefe == 0) {
@@ -170,20 +154,27 @@ public class MiniMaxi extends Observable {
 		return maximalScore;
 	}
 	
-	private byte machZug(byte spalte, byte spieler) {	
-		spielfeld[belegung[spalte]][spalte] = spieler;
-		byte score = berechneScore(belegung[spalte], spalte);
-		
+	private int machZug(byte spalte, byte spieler, byte tiefe) {	
+		try {
+			spielfeld[belegung[spalte]][spalte] = spieler;
+		}catch(Exception e) {
+			System.out.println("spalte: " + spalte 
+					+ "\ttiefe: " + tiefe 
+					+ "\tbelegung: " + belegung[spalte]);
+		}
+		int score = berechneScore(belegung[spalte], spalte);
+		belegteFelder++;
 		belegung[spalte]++;
-		return score;
+		return score - tiefe;
 	}
 	
 	private void loescheZug(byte spalte) {
 		belegung[spalte]--;
 		spielfeld[belegung[spalte]][spalte] = 0;
+		belegteFelder--;
 	}
 	
-	public byte berechneScore(byte zeile, byte spalte){
+	public int berechneScore(byte zeile, byte spalte){
 		byte score = 0;
 		
 		byte laenge = moveUpRight((byte) 1, zeile, spalte);
