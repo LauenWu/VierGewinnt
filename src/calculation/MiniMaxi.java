@@ -10,63 +10,49 @@ import static global.GlobalConstants.*;
 public class MiniMaxi extends Observable {
 	private List<Observer> beobachter = new ArrayList<>();
 
-	private final byte VICTORY = 127;
-	private final byte[] scores = {0,0,15,30,VICTORY,VICTORY,VICTORY,VICTORY};
+	private final int IMPOSSIBLE = 2000;
+	private final int VICTORY = 500;
+	private final int[] scores = {0,0,15,30,VICTORY,VICTORY,VICTORY,VICTORY};
 	
 	private byte[][] spielfeld;
 	private byte[] belegung;
 	private byte besteSpalte;
 	private byte level;
-	private byte zeilen;
-	private byte spalten;
 	private int felder;
-	
 	private int belegteFelder;
 	
-	private boolean gewonnen;
-	
-	//bester zug mensch
-	private byte alpha;
-	
-	//bester zug computer
-	private byte beta;
-	
 	public MiniMaxi(Observer beobachter) {
-		besteSpalte = -1;
-		level = 6;
-		zeilen = ZEILEN;
-		spalten = SPALTEN;
-		belegung = new byte[spalten];
-		spielfeld = new byte[zeilen][spalten];
-		felder = zeilen*spalten;
-		belegteFelder = 0;
-		gewonnen = false;
+		init();
 		this.beobachter.add(beobachter);
+	}
+	
+	public void init() {
+		besteSpalte = -1;
+		level = 9;
+		belegung = new byte[SPALTEN];
+		spielfeld = new byte[ZEILEN][SPALTEN];
+		felder = ZEILEN*SPALTEN;
+		belegteFelder = 0;
+		for(Observer b : beobachter) {
+			b.update(this, null);
+		}
 	}
 	
 	public byte getBesteSpalte() {
 		return besteSpalte;
 	}
 	
-	public byte getZeilen() {
-		return zeilen;
-	}
-	
-	public byte getSpalten() {
-		return spalten;
-	}
-	
 	public byte[][] getSpielfeld() {
 		return spielfeld;
 	}
 	
-	public boolean isGewonnen(byte score) {
+	public boolean isGewonnen(int score) {
 		return score == VICTORY;
 	}
 	
-	private byte computerZug() {
+	private int computerZug() {
 		mini((byte) 0, (byte) -VICTORY);
-		byte score = machZug(besteSpalte, COMPUTER); 
+		int score = machZug(besteSpalte, COMPUTER, (byte) 0); 
 		
 		for(Observer b : beobachter) {
 			b.update(this, null);
@@ -75,8 +61,13 @@ public class MiniMaxi extends Observable {
 		return score;
 	}
 	
+	private void berechneLevel() {
+		level = (byte) (9 + (double)belegteFelder/(double)felder*5);
+	}
+	
 	public byte menschZug(byte spalte) {
-		byte score = machZug(spalte, MENSCH);
+		//berechneLevel();
+		int score = machZug(spalte, MENSCH, (byte) 0);
 		if(isGewonnen(score)) return SIEG_MENSCH;
 		score = computerZug();
 		if(isGewonnen(score)) return SIEG_COMPUTER;
@@ -85,9 +76,9 @@ public class MiniMaxi extends Observable {
 	}
 	
 	public boolean isVoll() {
-		belegteFelder = 0;
-		for(int zeile = 0; zeile < zeilen; zeile ++) {
-			for(int spalte = 0; spalte < spalten; spalte ++) {
+		int belegteFelder = 0;
+		for(int zeile = 0; zeile < ZEILEN; zeile ++) {
+			for(int spalte = 0; spalte < SPALTEN; spalte ++) {
 				if(spielfeld[zeile][spalte] != 0) belegteFelder++;
 			}
 		}
@@ -95,29 +86,22 @@ public class MiniMaxi extends Observable {
 	}
 	
 	//computer
-	private byte mini(byte tiefe, byte alpha) {		
-		byte minimalScore = VICTORY;
-		for (byte spalte = 0; spalte < this.spalten; spalte++) {
-			if(belegung[spalte] >= zeilen) continue;
+	private int mini(byte tiefe, int alpha) {		
+		int minimalScore = IMPOSSIBLE;
+		for (byte spalte = 0; spalte < SPALTEN; spalte++) {
+			if(belegung[spalte] >= ZEILEN) continue;
 			
-			byte score = (byte) - machZug(spalte, COMPUTER);
+			int score = -machZug(spalte, COMPUTER, tiefe);
+			
+			if(!(-score + tiefe == VICTORY || tiefe == level || belegteFelder == felder)) {
+				score = maxi((byte) (tiefe + 1), minimalScore);
+			}
 			
 			if(score < alpha && tiefe > 0) {
 				//maxi wird Zug nicht zulassen
 				loescheZug(spalte);
-				continue;
-			}
-			
-			if(score == -VICTORY || tiefe == level) {
-				if(tiefe == 0) {
-					besteSpalte = spalte;
-					//gewonnen = true;
-				}
-				loescheZug(spalte);
 				return score;
 			}
-			
-			score = maxi((byte) (tiefe + 1), minimalScore);
 			
 			if(score < minimalScore) {
 				//besseren zug gefunden
@@ -133,29 +117,22 @@ public class MiniMaxi extends Observable {
 	}
 	
 	//mensch
-	private byte maxi(byte tiefe, byte beta) {
-		byte maximalScore = - VICTORY;
-		for (byte spalte = 0; spalte < this.spalten; spalte++) {
-			if(belegung[spalte] >= zeilen-1) continue;
+	private int maxi(byte tiefe, int beta) {
+		int maximalScore = - IMPOSSIBLE;
+		for (byte spalte = 0; spalte < SPALTEN; spalte++) {
+			if(belegung[spalte] >= ZEILEN) continue;
 			
-			byte score = (byte) machZug(spalte, MENSCH);
+			int score = machZug(spalte, MENSCH, tiefe);
 			
-			if(score > beta && tiefe > 0) {
-				//maxi wird Zug nicht zulassen
-				loescheZug(spalte);
-				continue;
+			if(!(score + tiefe == VICTORY || tiefe == level || belegteFelder == felder)) {
+				score = mini((byte) (tiefe + 1), maximalScore);
 			}
 			
-			if(score == VICTORY || tiefe == level) {
-				if(tiefe == 0) {
-					besteSpalte = spalte;
-					//gewonnen = true;
-				}
+			if(score > beta && tiefe > 0) {
+				//mini wird Zug nicht zulassen
 				loescheZug(spalte);
 				return score;
 			}
-			
-			score = mini((byte) (tiefe + 1), maximalScore);
 			
 			if(score > maximalScore) {
 				//besseren zug gefunden
@@ -170,20 +147,21 @@ public class MiniMaxi extends Observable {
 		return maximalScore;
 	}
 	
-	private byte machZug(byte spalte, byte spieler) {	
+	private int machZug(byte spalte, byte spieler, byte tiefe) {	
 		spielfeld[belegung[spalte]][spalte] = spieler;
-		byte score = berechneScore(belegung[spalte], spalte);
-		
+		int score = berechneScore(belegung[spalte], spalte);
+		belegteFelder++;
 		belegung[spalte]++;
-		return score;
+		return score - tiefe;
 	}
 	
 	private void loescheZug(byte spalte) {
 		belegung[spalte]--;
 		spielfeld[belegung[spalte]][spalte] = 0;
+		belegteFelder--;
 	}
 	
-	public byte berechneScore(byte zeile, byte spalte){
+	public int berechneScore(byte zeile, byte spalte){
 		byte score = 0;
 		
 		byte laenge = moveUpRight((byte) 1, zeile, spalte);
@@ -209,7 +187,7 @@ public class MiniMaxi extends Observable {
 	}
 	
 	private byte moveUpRight(int laenge, int zeile, int spalte) {
-		if(spalte < spalten-1 && zeile < zeilen-1 
+		if(spalte < SPALTEN-1 && zeile < ZEILEN-1 
 				&& spielfeld[zeile][spalte] == spielfeld[zeile + 1][spalte + 1]) {
 			return moveUpRight(laenge+1, zeile+1, spalte+1);
 		}
@@ -217,7 +195,7 @@ public class MiniMaxi extends Observable {
 	}
 	
 	private byte moveRight(int laenge, int zeile, int spalte) {
-		if(spalte < spalten-1 
+		if(spalte < SPALTEN-1 
 				&& spielfeld[zeile][spalte] == spielfeld[zeile][spalte + 1]) {
 			return moveRight(laenge+1, zeile, spalte+1);
 		}
@@ -225,7 +203,7 @@ public class MiniMaxi extends Observable {
 	}
 	
 	private byte moveDownRight(int laenge, int zeile, int spalte) {
-		if(spalte < spalten-1 && zeile > 0 
+		if(spalte < SPALTEN-1 && zeile > 0 
 				&& spielfeld[zeile][spalte] == spielfeld[zeile - 1][spalte + 1]) {
 			return moveDownRight(laenge+1, zeile-1, spalte+1);
 		}
@@ -257,7 +235,7 @@ public class MiniMaxi extends Observable {
 	}
 	
 	private byte moveUpLeft(int laenge, int zeile, int spalte) {
-		if(spalte > 0 && zeile < zeilen-1 
+		if(spalte > 0 && zeile < ZEILEN-1 
 				&& spielfeld[zeile][spalte] == spielfeld[zeile + 1][spalte - 1]) {
 			return moveUpLeft(laenge+1, zeile+1, spalte-1);
 		}
