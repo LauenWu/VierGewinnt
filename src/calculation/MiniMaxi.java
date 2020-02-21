@@ -28,7 +28,7 @@ public class MiniMaxi extends Observable {
 	
 	public void init() {
 		besteSpalte = -1;
-		level = 6;
+		level = 5;
 		belegung = new byte[SPALTEN];
 		spielfeld = new byte[ZEILEN][SPALTEN];
 		felder = ZEILEN*SPALTEN;
@@ -63,7 +63,6 @@ public class MiniMaxi extends Observable {
 	
 	public byte menschZug(byte spalte) {
 		int score = machZug(spalte, MENSCH, (byte) 0);
-		System.out.println(score);
 		if(isGewonnen(score)) return SIEG_MENSCH;
 		score = computerZug();
 		if(isGewonnen(score)) return SIEG_COMPUTER;
