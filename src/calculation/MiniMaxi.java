@@ -28,7 +28,7 @@ public class MiniMaxi extends Observable {
 	
 	public void init() {
 		besteSpalte = -1;
-		level = 9;
+		level = 6;
 		belegung = new byte[SPALTEN];
 		spielfeld = new byte[ZEILEN][SPALTEN];
 		felder = ZEILEN*SPALTEN;
@@ -61,13 +61,9 @@ public class MiniMaxi extends Observable {
 		return score;
 	}
 	
-	private void berechneLevel() {
-		level = (byte) (9 + (double)belegteFelder/(double)felder*5);
-	}
-	
 	public byte menschZug(byte spalte) {
-		//berechneLevel();
 		int score = machZug(spalte, MENSCH, (byte) 0);
+		System.out.println(score);
 		if(isGewonnen(score)) return SIEG_MENSCH;
 		score = computerZug();
 		if(isGewonnen(score)) return SIEG_COMPUTER;
@@ -149,7 +145,7 @@ public class MiniMaxi extends Observable {
 	
 	private int machZug(byte spalte, byte spieler, byte tiefe) {	
 		spielfeld[belegung[spalte]][spalte] = spieler;
-		int score = berechneScore(belegung[spalte], spalte);
+		int score = berechneScore(belegung[spalte], spalte, spieler);
 		belegteFelder++;
 		belegung[spalte]++;
 		return score - tiefe;
@@ -161,85 +157,216 @@ public class MiniMaxi extends Observable {
 		belegteFelder--;
 	}
 	
-	public int berechneScore(byte zeile, byte spalte){
-		byte score = 0;
+	public int berechneScore(byte zeile, byte spalte, byte spieler){
+		int score = horizontal(zeile, spalte, spieler);
+		if(score >= VICTORY) return VICTORY;
 		
-		byte laenge = moveUpRight((byte) 1, zeile, spalte);
-		laenge += moveDownLeft((byte) 0, zeile, spalte);
-		if(laenge > 3) return VICTORY;
-		score += scores[laenge];
+		score += diag1(zeile, spalte, spieler);
+		if(score >= VICTORY) return VICTORY;
 		
-		laenge = moveRight((byte) 1, zeile, spalte);
-		laenge += moveLeft((byte) 0, zeile, spalte);
-		if(laenge > 3) return VICTORY;
-		score += scores[laenge];
+		score += diag2(zeile, spalte, spieler);
+		if(score >= VICTORY) return VICTORY;
 		
-		laenge = moveDownRight((byte) 1, zeile, spalte);
-		laenge += moveUpLeft((byte) 0, zeile, spalte);
-		if(laenge > 3) return VICTORY;
-		score += scores[laenge];
-		
-		laenge = moveDown((byte) 1, zeile, spalte);
-		if(laenge > 3) return VICTORY;
-		score += scores[laenge];
+		score += runter(zeile, spalte, spieler);
+		if(score >= VICTORY) return VICTORY;
 		
 		return score;
 	}
 	
-	private byte moveUpRight(int laenge, int zeile, int spalte) {
-		if(spalte < SPALTEN-1 && zeile < ZEILEN-1 
-				&& spielfeld[zeile][spalte] == spielfeld[zeile + 1][spalte + 1]) {
-			return moveUpRight(laenge+1, zeile+1, spalte+1);
+	private int horizontal(byte zeile, byte spalte, byte spieler) {
+		int maxPunkte = 0;
+		int start = 0;
+		boolean stop = false;
+		int j = 0;
+		while(!stop && j < 3) {
+			try {
+				j ++;
+				byte feld = spielfeld[zeile][spalte-j];
+				if(feld == spieler) {
+					start = j;
+				}else if(feld != 0) {
+					throw new RuntimeException();
+				}
+			} catch(RuntimeException e) {
+				stop = true;
+			}
 		}
-		return (byte) laenge;
+		
+		stop = false;
+		
+		while(!stop) {
+			int i = 0;
+			int punkte = 0;
+			while(!stop && i < 4) {
+				try {
+					byte feld = spielfeld[zeile][spalte-start+i];
+					if(feld == spieler) {
+						punkte ++;
+					} else if(feld != 0) {
+						throw new RuntimeException();
+					}
+					i++;
+				} catch(RuntimeException e) {
+					stop = true;
+				}
+			}
+			if(punkte > maxPunkte) {
+				maxPunkte = punkte;
+			}
+			start++;
+		}
+		return scores[maxPunkte]+10;
 	}
 	
-	private byte moveRight(int laenge, int zeile, int spalte) {
-		if(spalte < SPALTEN-1 
-				&& spielfeld[zeile][spalte] == spielfeld[zeile][spalte + 1]) {
-			return moveRight(laenge+1, zeile, spalte+1);
+	private int diag1(byte zeile, byte spalte, byte spieler) {
+		int maxPunkte = 0;
+		int start = 0;
+		boolean stop = false;
+		int j = 0;
+		while(!stop && j < 3) {
+			try {
+				j ++;
+				byte feld = spielfeld[zeile-j][spalte-j];
+				if(feld == spieler) {
+					start = j;
+				}else if(feld != 0) {
+					throw new RuntimeException();
+				}
+			} catch(RuntimeException e) {
+				stop = true;
+			}
 		}
-		return (byte) laenge;
+		
+		stop = false;
+		
+		while(!stop) {
+			int i = 0;
+			int punkte = 0;
+			while(!stop && i < 4) {
+				try {
+					byte feld = spielfeld[zeile-start+i][spalte-start+i];
+					if(feld == spieler) {
+						punkte ++;
+					} else if(feld != 0) {
+						throw new RuntimeException();
+					}
+					i++;
+				} catch(RuntimeException e) {
+					stop = true;
+				}
+			}
+			if(punkte > maxPunkte) {
+				maxPunkte = punkte;
+			}
+			start++;
+		}
+		return scores[maxPunkte];
 	}
 	
-	private byte moveDownRight(int laenge, int zeile, int spalte) {
-		if(spalte < SPALTEN-1 && zeile > 0 
-				&& spielfeld[zeile][spalte] == spielfeld[zeile - 1][spalte + 1]) {
-			return moveDownRight(laenge+1, zeile-1, spalte+1);
+	private int diag2(byte zeile, byte spalte, byte spieler) {
+		int maxPunkte = 0;
+		int start = 0;
+		boolean stop = false;
+		int j = 0;
+		while(!stop && j < 3) {
+			try {
+				j ++;
+				byte feld = spielfeld[zeile+j][spalte-j];
+				if(feld == spieler) {
+					start = j;
+				}else if(feld != 0) {
+					throw new RuntimeException();
+				}
+			} catch(RuntimeException e) {
+				stop = true;
+			}
 		}
-		return (byte) laenge;
+		
+		stop = false;
+		
+		while(!stop) {
+			int i = 0;
+			int punkte = 0;
+			while(!stop && i < 4) {
+				try {
+					byte feld = spielfeld[zeile+start-i][spalte-start+i];
+					if(feld == spieler) {
+						punkte ++;
+					} else if(feld != 0) {
+						throw new RuntimeException();
+					}
+					i++;
+				} catch(RuntimeException e) {
+					stop = true;
+				}
+			}
+			if(punkte > maxPunkte) {
+				maxPunkte = punkte;
+			}
+			start++;
+		}
+		return scores[maxPunkte];
 	}
 	
-	private byte moveDown(int laenge, int zeile, int spalte) {
-		if(zeile > 0 
-				&& spielfeld[zeile][spalte] == spielfeld[zeile - 1][spalte]) {
-			return moveDown(laenge+1, zeile-1, spalte);
+	private int runter(byte zeile, byte spalte, byte spieler) {
+		int punkte = 0;
+		
+		for(int i = 0; i < 4; i++) {
+			try {
+				byte feld = spielfeld[zeile--][spalte];
+				if(feld == spieler) {
+					punkte++;
+				} else {
+					break;
+				}
+			} catch(RuntimeException e) {
+				break;
+			}
 		}
-		return (byte) laenge;
+		
+		return scores[punkte];
 	}
 	
-	private byte moveDownLeft(int laenge, int zeile, int spalte) {
-		if(spalte > 0 && zeile > 0 
-				&& spielfeld[zeile][spalte] == spielfeld[zeile - 1][spalte - 1]) {
-			return moveDownLeft(laenge+1, zeile-1, spalte-1);
-		}
-		return (byte) laenge;
-	}
-	
-	private byte moveLeft(int laenge, int zeile, int spalte) {
-		if(spalte > 0 
-				&& spielfeld[zeile][spalte] == spielfeld[zeile][spalte - 1]) {
-			return moveLeft(laenge+1, zeile, spalte-1);
-		}
-		return (byte) laenge;
-	}
-	
-	private byte moveUpLeft(int laenge, int zeile, int spalte) {
-		if(spalte > 0 && zeile < ZEILEN-1 
-				&& spielfeld[zeile][spalte] == spielfeld[zeile + 1][spalte - 1]) {
-			return moveUpLeft(laenge+1, zeile+1, spalte-1);
-		}
-		return (byte) laenge;
-	}
-
+//	public static void main(String[] args) {
+//		MiniMaxi mm = new MiniMaxi(null);
+//		byte[][] sf = {
+//				{0,0,0,0,0,0,0},
+//				{0,0,0,0,0,0,0},
+//				{0,0,0,0,0,0,0},
+//				{0,0,0,0,0,0,0},
+//				{0,0,0,0,0,0,0},
+//				{2,0,2,2,2,0,2}};
+//		mm.spielfeld = sf;
+//		System.out.println(mm.horizontal((byte)5, (byte)2, (byte)2));
+//		
+//		byte[][] sf2 = {
+//				{1,0,0,0,0,0,0},
+//				{0,1,0,0,0,0,0},
+//				{0,0,1,0,0,0,0},
+//				{0,0,0,1,0,0,0},
+//				{0,0,0,0,2,0,0},
+//				{1,0,2,2,2,1,0}};
+//		mm.spielfeld = sf2;
+//		System.out.println(mm.diag1((byte)3, (byte)3, (byte)1));
+//		
+//		byte[][] sf3 = {
+//				{0,0,0,0,0,0,2},
+//				{0,0,0,0,2,1,0},
+//				{0,0,0,1,2,0,0},
+//				{0,0,2,0,0,0,0},
+//				{0,2,2,0,0,0,0},
+//				{1,0,2,2,2,1,0}};
+//		mm.spielfeld = sf3;
+//		System.out.println(mm.diag2((byte)2, (byte)4, (byte)2));
+//		
+//		byte[][] sf4 = {
+//				{0,0,2,0,0,0,0}, //0
+//				{0,0,2,0,2,0,0}, //1
+//				{0,0,2,0,0,0,0}, //2
+//				{0,0,0,0,0,0,0}, //3
+//				{0,2,1,0,0,0,0}, //4
+//				{1,0,2,2,2,1,0}};//5
+//		mm.spielfeld = sf4;
+//		System.out.println(mm.runter((byte)2, (byte)2, (byte)2));
+//	}
 }
